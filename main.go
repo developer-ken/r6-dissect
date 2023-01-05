@@ -25,6 +25,7 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Send()
 	}
+
 	if viper.GetString("export") != "" {
 		type output struct {
 			Header       types.Header     `json:"header"`
@@ -37,17 +38,25 @@ func main() {
 		if err != nil && (err != io.EOF && err != zstd.ErrMagicMismatch) {
 			log.Fatal().Err(err).Send()
 		}
-		file, err := os.OpenFile(viper.GetString("output"), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
-		if err != nil {
-			log.Fatal().Err(err).Send()
+		if viper.GetString("output") == "stdout" {
+			encoder := json.NewEncoder(os.Stdout)
+			encoder.Encode(output{
+				c.Header,
+				activityFeed,
+			})
+		} else {
+			file, err := os.OpenFile(viper.GetString("output"), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
+			if err != nil {
+				log.Fatal().Err(err).Send()
+			}
+			defer file.Close()
+			encoder := json.NewEncoder(file)
+			encoder.Encode(output{
+				c.Header,
+				activityFeed,
+			})
+			log.Info().Msg("Output saved.")
 		}
-		defer file.Close()
-		encoder := json.NewEncoder(file)
-		encoder.Encode(output{
-			c.Header,
-			activityFeed,
-		})
-		log.Info().Msg("Output saved.")
 	} else {
 		PrintHead(c)
 		if !viper.GetBool("static") {
